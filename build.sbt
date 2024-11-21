@@ -5,6 +5,8 @@ import Dependencies.*
 ThisBuild / version := "0.1.0"
 publishMavenStyle := true
 
+sbtPlugin := true
+
 lazy val core = (project in file("core"))
   .settings(
     commonSettings,

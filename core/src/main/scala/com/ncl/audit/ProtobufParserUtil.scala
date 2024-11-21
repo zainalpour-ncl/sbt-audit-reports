@@ -1,6 +1,5 @@
 package com.ncl.audit
 
-
 import com.ncl.parser.pf.generated.ProtobufLexer
 import com.ncl.parser.pf.generated.ProtobufParser
 import org.antlr.v4.runtime.CharStreams
@@ -18,7 +17,7 @@ object ProtobufParserUtil {
 
     // Parse the file and visit using the visitor
     val fileContext = parser.file()
-    println(fileContext.toStringTree(parser))
+    // println(fileContext.toStringTree(parser))
     val visitor = new ServiceExtractorVisitor
     visitor.visit(fileContext)
   }
