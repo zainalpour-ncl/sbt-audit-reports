@@ -1,14 +1,38 @@
-import Dependencies._
+import sbt.*
+import sbt.Keys.*
+import Dependencies.*
 
-ThisBuild / scalaVersion     := "2.13.12"
-ThisBuild / version          := "0.1.0-SNAPSHOT"
-ThisBuild / organization     := "com.example"
-ThisBuild / organizationName := "example"
+ThisBuild / version := "0.1.0"
+publishMavenStyle := true
 
-lazy val root = (project in file("."))
+lazy val core = (project in file("core"))
   .settings(
-    name := "sbt-audit-reports",
-    libraryDependencies += munit % Test
+    commonSettings,
+    name := "audit-report-core",
+    libraryDependencies ++= coreDependencies ++ Seq(
+      "org.scala-lang" % "scala-reflect" % scalaVersion.value
+    ),
+    Antlr4 / antlr4Version := antlrVersion,
+    Antlr4 / antlr4PackageName := Some("com.ncl.parser.pf.generated"),
+    Antlr4 / antlr4GenListener := false,
+    Antlr4 / antlr4GenVisitor := true
+  )
+  .enablePlugins(Antlr4Plugin)
+
+lazy val auditReportPlugin = (project in file("sbt-plugin"))
+  .enablePlugins(SbtPlugin)
+  .dependsOn(core)
+  .settings(
+    commonSettings,
+    addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.8.19"),
+    name := "sbt-audit-report-plugin",
+    libraryDependencies ++= pluginDependencies,
   )
 
-// See https://www.scala-sbt.org/1.x/docs/Using-Sonatype.html for instructions on how to publish to Sonatype.
+lazy val root = (project in file("."))
+  .aggregate(core, auditReportPlugin)
+  .settings(
+    name := "sbt-audit-report",
+    commonSettings,
+    publish / skip := true
+  )
