@@ -5,7 +5,6 @@ import com.ncl.parser.pf.generated.ProtobufParserBaseVisitor
 
 import scala.jdk.CollectionConverters._
 
-// Case classes to represent extracted services and RPC methods
 case class RpcMethod(name: String, inputType: String, outputType: String)
 case class Service(name: String, methods: Seq[RpcMethod])
 

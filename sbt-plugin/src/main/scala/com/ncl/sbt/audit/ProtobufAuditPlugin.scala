@@ -56,9 +56,9 @@ object ProtobufAuditPlugin extends AutoPlugin {
                 method.name,
                 method.inputType,
                 method.outputType
-              ).mkString(",") // Convert to CSV format
+              ).mkString(",")
             }
-          } // Flatten nested lists
+          }
         } catch {
           case e: Exception =>
             throw new MessageOnlyException(s"Error processing file ${file.getAbsolutePath}: ${e.getMessage}")
