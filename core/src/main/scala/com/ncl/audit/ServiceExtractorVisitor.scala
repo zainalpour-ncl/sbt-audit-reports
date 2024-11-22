@@ -5,28 +5,23 @@ import com.ncl.parser.pf.generated.ProtobufParserBaseVisitor
 
 import scala.jdk.CollectionConverters._
 
-case class RpcMethod(name: String, inputType: String, outputType: String)
-case class Service(name: String, methods: Seq[RpcMethod])
-
 // Visitor for parsing Protobuf content
 class ServiceExtractorVisitor extends ProtobufParserBaseVisitor[Seq[Service]] {
 
-  override def visitFile(ctx: FileContext): Seq[Service] = {
+  override def visitFile(ctx: FileContext): Seq[Service] =
     // Visit all file elements and collect services
     ctx.fileElement().asScala.flatMap(visit)
-  }
 
   override def visitServiceDecl(ctx: ServiceDeclContext): Seq[Service] = {
     val serviceName = ctx.serviceName().getText
     val methods = ctx.serviceElement().asScala.flatMap { element =>
       Option(element.methodDecl()).map(extractMethod)
     }
-    Seq(Service(serviceName, methods))
+    Seq(Service(serviceName, methods.toSet))
   }
 
-  override def visitFileElement(ctx: FileElementContext): Seq[Service] = {
+  override def visitFileElement(ctx: FileElementContext): Seq[Service] =
     if (ctx.serviceDecl() != null) visitServiceDecl(ctx.serviceDecl()) else Seq.empty
-  }
 
   private def extractMethod(ctx: MethodDeclContext): RpcMethod = {
     val methodName = ctx.methodName().getText

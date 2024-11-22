@@ -15,7 +15,7 @@ Installation
 
 1.  Add the plugin to `project/plugins.sbt`:
 
-    `addSbtPlugin("com.ncl" % "protobuf-audit-plugin" % "1.0.0")`
+    `addSbtPlugin("com.ncl" % "protobuf-audit-plugin" % "0.1.0")`
 
 2.  Enable the plugin in `build.sbt`:
 

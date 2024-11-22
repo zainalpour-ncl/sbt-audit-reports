@@ -7,6 +7,7 @@ import org.antlr.v4.runtime.CommonTokenStream
 
 import scala.io.Source
 
+// scalastyle:off
 object ProtobufParserUtil {
 
   def parseContent(protobufContent: String): Seq[Service] = {
@@ -24,6 +25,6 @@ object ProtobufParserUtil {
 
   def parseFile(filePath: String): Seq[Service] = {
     val fileContent = Source.fromFile(filePath).mkString
-    parseContent(fileContent)
+    parseContent(fileContent).map(_.copy(definedIn = Some(filePath)))
   }
 }
