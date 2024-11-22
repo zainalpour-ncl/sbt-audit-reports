@@ -9,11 +9,15 @@ object Dependencies {
   val fastparseVersion = "3.1.1"
   val scalaTestVersion = "3.2.15"
   val commonIOVersion = "2.11.0"
+  val circeVersion = "0.14.10"
 
   val coreDependencies: Seq[ModuleID] = Seq(
     "org.scalameta" %% "scalameta" % scalaMetaVersion,
     "org.antlr" % "antlr4-runtime" % antlrVersion,
     "com.lihaoyi" %% "fastparse" % fastparseVersion,
+    "io.circe" %% "circe-core" % circeVersion,
+    "io.circe" %% "circe-generic" % circeVersion,
+    "io.circe" %% "circe-parser" % circeVersion,
     "org.scalatest" %% "scalatest" % scalaTestVersion % Test
   )
 
