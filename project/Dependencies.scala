@@ -5,23 +5,15 @@ import sbt.Keys.*
 
 object Dependencies {
   val antlrVersion = "4.13.1"
-  val http4sVersion = "1.0-234-d1a2b53"
-  val circeVersion = "0.13.0"
   val scalaMetaVersion = "4.8.13"
-  val catsVersion = "2.10.0"
+  val fastparseVersion = "3.1.1"
   val scalaTestVersion = "3.2.15"
   val commonIOVersion = "2.11.0"
 
   val coreDependencies: Seq[ModuleID] = Seq(
     "org.scalameta" %% "scalameta" % scalaMetaVersion,
     "org.antlr" % "antlr4-runtime" % antlrVersion,
-    "org.eclipse.jgit" % "org.eclipse.jgit" % "6.8.0.202311291450-r",
-    "org.http4s" %% "http4s-blaze-client" % http4sVersion,
-    "org.http4s" %% "http4s-dsl" % http4sVersion,
-    "org.http4s" %% "http4s-circe" % http4sVersion,
-    "org.typelevel" %% "cats-core" % catsVersion,
-    "io.circe" %% "circe-generic" % circeVersion,
-    "io.circe" %% "circe-parser" % circeVersion,
+    "com.lihaoyi" %% "fastparse" % fastparseVersion,
     "org.scalatest" %% "scalatest" % scalaTestVersion % Test
   )
 
