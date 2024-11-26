@@ -25,8 +25,11 @@ class ServiceExtractorVisitor extends ProtobufParserBaseVisitor[Seq[Service]] {
 
   private def extractMethod(ctx: MethodDeclContext): RpcMethod = {
     val methodName = ctx.methodName().getText
-    val inputType = ctx.inputType().getText
-    val outputType = ctx.outputType().getText
+    val inputType = removeParentheses(ctx.inputType().getText)
+    val outputType = removeParentheses(ctx.outputType().getText)
     RpcMethod(methodName, inputType, outputType)
   }
+
+  private def removeParentheses(input: String): String =
+    input.replaceAll("[()]", "")
 }

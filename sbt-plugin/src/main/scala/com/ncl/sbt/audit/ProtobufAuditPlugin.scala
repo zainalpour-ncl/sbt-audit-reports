@@ -34,7 +34,7 @@ object ProtobufAuditPlugin extends AutoPlugin {
       val outputPath = auditReportOutputPath.value
       val modelOutputPath = projectModelOutputPath.value
 
-      log.info(s"Starting Protobuf audit...")
+      log.info("Starting Protobuf audit...")
 
       // Extract project metadata
       val projectName = ProjectExtractorUtil.extractProjectName(baseDir)
@@ -43,29 +43,34 @@ object ProtobufAuditPlugin extends AutoPlugin {
       log.info(s"Repository: $repository")
 
       // Parse Protobuf files
-      val protoFiles = (protoPath ** "*.proto").get
+      val protoFiles = (protoPath ** "*.proto").get()
       val allServices = protoFiles.flatMap { file =>
-        log.info(s"Processing Protobuf file: ${file.getAbsolutePath}")
+        log.debug(s"Processing Protobuf file: ${file.getAbsolutePath}")
         try ProtobufParserUtil.parseFile(file.getAbsolutePath)
         catch {
           case e: Exception =>
-            throw new MessageOnlyException(s"Error processing file ${file.getAbsolutePath}: ${e.getMessage}")
+            throw new MessageOnlyException( // scalastyle:ignore
+              s"Error processing file ${file.getAbsolutePath}: ${e.getMessage}"
+            )
         }
       }.toSet
 
-      val externalServices = allServices.filter(_.definedIn.contains("protobuf_external"))
-      // val externalMethods = externalServices.flatMap(_.methods)
+      val externalServices =
+        allServices.filter(_.definedIn.exists(path => path.contains("protobuf_external") || path.contains("target")))
+      externalServices.foreach(service => log.info(s"External service: ${service.name}:${service.definedIn}"))
+
       val methods = allServices.flatMap(_.methods)
 
       val internalServices = allServices.diff(externalServices)
+      internalServices.foreach(service => log.info(s"Internal service: ${service.name}:${service.definedIn}"))
 
       // Analyze Scala source files for ServiceCalls
       log.info(s"Analyzing Scala source files in $scalaPath")
-      val scalaFiles = (scalaPath ** "*.scala").get
+      val scalaFiles = (scalaPath ** "*.scala").get()
       val serviceCalls = scalaFiles.flatMap { file =>
-        log.info(s"Processing Scala file: ${file.getAbsolutePath}")
+        log.debug(s"Processing Scala file: ${file.getAbsolutePath}")
         val sourceCode = Files.readString(file.toPath, StandardCharsets.UTF_8)
-        try InjectedServiceAnalyzer.analyzeServiceCalls(sourceCode)
+        try InjectedServiceAnalyzer.analyzeServiceCalls(sourceCode, file.getName)
         catch {
           case e: Exception =>
             log.error(s"Error processing Scala file ${file.getAbsolutePath}: ${e.getMessage}")
@@ -111,7 +116,7 @@ object ProtobufAuditPlugin extends AutoPlugin {
         Files.write(Paths.get(outputPath.getAbsolutePath), csvContent.getBytes(StandardCharsets.UTF_8))
         log.info("Protobuf audit completed successfully.")
       } else {
-        throw new MessageOnlyException("No services found in the Protobuf files.")
+        throw new MessageOnlyException("No services found in the Protobuf files.") // scalastyle:ignore
       }
     }
   )

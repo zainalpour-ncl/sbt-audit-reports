@@ -1,5 +1,6 @@
 package com.ncl.audit
 
+import io.circe.Printer
 import io.circe.generic.auto._
 import io.circe.syntax.EncoderOps
 
@@ -38,7 +39,8 @@ object ProjectExtractorUtil {
   }
 
   def writeProjectModelToJson(project: ProjectModel, outputPath: File): Unit = {
-    val json = project.asJson.spaces2 // Pretty-printed JSON
+    val printer = Printer.spaces2.copy(dropNullValues = true)
+    val json = printer.print(project.asJson)
     Files.write(Paths.get(outputPath.getAbsolutePath), json.getBytes(StandardCharsets.UTF_8))
   }
 }

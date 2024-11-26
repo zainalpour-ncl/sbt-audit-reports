@@ -4,7 +4,10 @@ import scala.meta._
 
 // scalastyle:off
 object InjectedServiceAnalyzer {
-  def analyzeServiceCalls(source: String): Set[ServiceCall] = {
+
+  implicit val dialect: Dialect = scala.meta.dialects.Scala213
+
+  def analyzeServiceCalls(source: String, fileName: String): Set[ServiceCall] = {
     val parsed = source.parse[Source] match {
       case Parsed.Success(tree) => tree
       case Parsed.Error(pos, message, _) =>
@@ -57,7 +60,7 @@ object InjectedServiceAnalyzer {
     serviceCalls
       .groupBy(_.serviceName)
       .map { case (serviceName, calls) =>
-        ServiceCall(serviceName, calls.flatMap(_.calledMethods).toSet)
+        ServiceCall(serviceName, calls.flatMap(_.calledMethods).toSet, calledIn = Some(fileName))
       }
       .toSet
   }
