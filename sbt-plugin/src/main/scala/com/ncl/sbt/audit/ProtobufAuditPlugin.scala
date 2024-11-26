@@ -57,12 +57,10 @@ object ProtobufAuditPlugin extends AutoPlugin {
 
       val externalServices =
         allServices.filter(_.definedIn.exists(path => path.contains("protobuf_external") || path.contains("target")))
-      externalServices.foreach(service => log.info(s"External service: ${service.name}:${service.definedIn}"))
-
-      val methods = allServices.flatMap(_.methods)
 
       val internalServices = allServices.diff(externalServices)
-      internalServices.foreach(service => log.info(s"Internal service: ${service.name}:${service.definedIn}"))
+
+      val methods = allServices.flatMap(_.methods)
 
       // Analyze Scala source files for ServiceCalls
       log.info(s"Analyzing Scala source files in $scalaPath")
