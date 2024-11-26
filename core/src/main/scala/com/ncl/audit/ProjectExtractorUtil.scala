@@ -42,5 +42,6 @@ object ProjectExtractorUtil {
     val printer = Printer.spaces2.copy(dropNullValues = true)
     val json = printer.print(project.asJson)
     Files.write(Paths.get(outputPath.getAbsolutePath), json.getBytes(StandardCharsets.UTF_8))
+    ()
   }
 }

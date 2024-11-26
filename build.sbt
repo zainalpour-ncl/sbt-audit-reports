@@ -1,11 +1,11 @@
 import sbt.*
 import sbt.Keys.*
 import Dependencies.*
+import sbtassembly.AssemblyKeys.assembly
 
 ThisBuild / version := "0.1.0"
+ThisBuild / scalaVersion := "2.13.12"
 publishMavenStyle := true
-
-sbtPlugin := true
 
 lazy val core = (project in file("core"))
   .settings(
@@ -28,11 +28,31 @@ lazy val auditReportPlugin = (project in file("sbt-plugin"))
     commonSettings,
     addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.8.19"),
     name := "sbt-audit-report-plugin",
-    libraryDependencies ++= pluginDependencies,
+    sbtPlugin := true,
+    libraryDependencies ++= pluginDependencies
   )
 
+lazy val auditReportCli = (project in file("cli"))
+  .dependsOn(core)
+  .settings(
+    commonSettings,
+    name := "audit-report-cli",
+    Compile / mainClass := Some("com.ncl.audit.ProtobufAuditCLI"),
+    libraryDependencies ++= Seq(
+      "com.github.scopt" %% "scopt" % "4.1.0",
+      "ch.qos.logback" % "logback-classic" % "1.5.12",
+      "org.slf4j" % "slf4j-api" % "2.0.16"
+    ),
+    assembly / assemblyJarName := "audit-report-cli.jar",
+    assembly / assemblyMergeStrategy := {
+      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+      case _ => MergeStrategy.first
+    }
+  )
+  .enablePlugins(AssemblyPlugin)
+
 lazy val root = (project in file("."))
-  .aggregate(core, auditReportPlugin)
+  .aggregate(core, auditReportPlugin, auditReportCli)
   .settings(
     name := "sbt-audit-report",
     commonSettings,
