@@ -37,14 +37,13 @@ lazy val auditReportCli = (project in file("cli"))
   .settings(
     commonSettings,
     name := "audit-report-cli",
-    Compile / mainClass := Some("com.ncl.audit.ProtobufAuditCLI"),
+    Compile / mainClass := Some("com.ncl.audit.cli.ProtobufAuditCLI"),
     libraryDependencies ++= Seq(
-      "com.github.scopt" %% "scopt" % "4.1.0",
-      "ch.qos.logback" % "logback-classic" % "1.5.12",
-      "org.slf4j" % "slf4j-api" % "2.0.16"
+      "com.github.scopt" %% "scopt" % "4.1.0"
     ),
     assembly / assemblyJarName := "audit-report-cli.jar",
     assembly / assemblyMergeStrategy := {
+      case PathList("META-INF", "services", xs @ _*) => MergeStrategy.concat
       case PathList("META-INF", xs @ _*) => MergeStrategy.discard
       case _ => MergeStrategy.first
     }
