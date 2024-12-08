@@ -1,22 +1,26 @@
 package com.ncl.audit.cli
 
+import com.ncl.audit.RoutesParser
+import com.ncl.audit._
 import org.slf4j.LoggerFactory
 import scopt.OParser
 
 import java.io.File
+import java.nio.charset.StandardCharsets
+import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.FileVisitResult
+import java.nio.file.Files
 import java.nio.file.Paths
+import java.nio.file.SimpleFileVisitor
+import scala.collection.mutable
 import scala.io.Source
-import scala.util.Try
 import scala.sys.process._
-import io.circe.Decoder
-import io.circe.generic.auto._
-import io.circe.parser._
+import scala.util.Try
 
 object ProtobufAuditCLI extends App {
 
   private val logger = LoggerFactory.getLogger(ProtobufAuditCLI.getClass)
 
-  // Configuration case classes
   case class Config(
     inputFolder: Option[File] = None,
     githubUrl: String = "https://github.com",
@@ -25,9 +29,8 @@ object ProtobufAuditCLI extends App {
     configFile: Option[File] = None
   )
 
-  case class AppConfig(product: String = "ncl", projects: List[String] = List())
+  case class AppConfig(product: String = "ncl", projects: List[String])
 
-  // Argument parser
   val builder = OParser.builder[Config]
   val parser = {
     import builder._
@@ -45,10 +48,10 @@ object ProtobufAuditCLI extends App {
         .action((x, c) => c.copy(githubUrl = x))
         .text("GitHub server URL. Defaults to 'https://github.com'."),
       opt[String]('o', "organization")
-        .required()
+        .optional()
         .valueName("<organization>")
         .action((x, c) => c.copy(organization = x))
-        .text("Organization name for cloning repositories."),
+        .text("Organization name for cloning repositories. Defaults to 'norwegian-cruise-line'."),
       opt[File]('d', "output")
         .optional()
         .valueName("<folder>")
@@ -58,32 +61,24 @@ object ProtobufAuditCLI extends App {
         .optional()
         .valueName("<file>")
         .action((x, c) => c.copy(configFile = Some(x)))
-        .text("Configuration file specifying product and projects."),
-      help("help").text("Displays this help message.")
+        .text("Configuration file specifying product and projects.")
     )
   }
 
-  // Main application logic
   OParser.parse(parser, args, Config()) match {
     case Some(config) =>
-      // Use fallback input folder if not specified
-      val baseFolder = config.inputFolder.getOrElse(new File("/tmp/cloned_repos"))
-      val appConfig = config.configFile.map(loadAppConfig).getOrElse(AppConfig())
-
-      logger.info(s"Using base folder: ${baseFolder.getAbsolutePath}")
-      logger.info(s"Using output folder: ${config.outputFolder.getAbsolutePath}")
-
       if (!checkDependencies(Seq("gh", "jq"))) {
         logger.error("Required applications are missing. Please ensure both 'gh' and 'jq' are installed.")
         sys.exit(1)
       }
 
+      val appConfig = config.configFile.map(loadAppConfig)
+      val baseFolder = config.inputFolder.getOrElse(new File("/tmp/cloned_repos"))
       cloneRepositories(config.githubUrl, config.organization, baseFolder, appConfig)
       processRepositories(config, baseFolder, config.outputFolder, appConfig)
 
     case _ =>
       logger.error("Invalid arguments or help requested.")
-      sys.exit(1)
   }
 
   private def checkDependencies(dependencies: Seq[String]): Boolean =
@@ -98,14 +93,12 @@ object ProtobufAuditCLI extends App {
       logger.error(s"Failed to read config file: ${file.getAbsolutePath}")
       sys.exit(1)
     }
-
+    import io.circe.generic.auto._
+    import io.circe.parser._
     decode[AppConfig](content) match {
-      case Right(config) =>
-        logger.info(s"Loaded AppConfig: $config")
-        config
+      case Right(config) => config
       case Left(error) =>
-        logger.error(s"Failed to parse config file: ${error.getMessage}")
-        logger.error(s"Content: $content")
+        logger.error(s"Failed to parse config file: $error")
         sys.exit(1)
     }
   }
@@ -114,28 +107,21 @@ object ProtobufAuditCLI extends App {
     githubUrl: String,
     organization: String,
     baseFolder: File,
-    appConfig: AppConfig
+    appConfig: Option[AppConfig]
   ): Unit = {
     if (!baseFolder.exists()) baseFolder.mkdirs()
 
-    val repos = if (appConfig.projects.nonEmpty) {
-      appConfig.projects
-    } else {
-      logger.warn("No projects specified in config file. Fetching all repositories using GitHub CLI.")
-      s"gh repo list $organization --json name | jq -r '.[].name'".!!.trim.split("\n").toSeq
+    val repos = appConfig match {
+      case Some(config) => config.projects
+      case None         => s"gh repo list $organization --json name | jq -r '.[].name'".!!.trim.split("\n").toSeq
     }
 
     repos.foreach { repo =>
       val repoPath = Paths.get(baseFolder.getAbsolutePath, repo).toFile
       if (!repoPath.exists()) {
         val cloneCommand = s"git clone $githubUrl/$organization/$repo.git ${repoPath.getAbsolutePath}"
-        logger.info(s"Running clone command: $cloneCommand")
-        val result = cloneCommand.!
-        if (result != 0) {
-          logger.error(s"Failed to clone repository: $repo")
-        }
-      } else {
-        logger.info(s"Repository already exists: ${repoPath.getAbsolutePath}")
+        logger.info(s"Cloning repository: $repo")
+        cloneCommand.!
       }
     }
   }
@@ -144,22 +130,92 @@ object ProtobufAuditCLI extends App {
     config: Config,
     inputFolder: File,
     outputFolder: File,
-    appConfig: AppConfig
-  ): Unit = {
-    val productFolder = outputFolder.toPath.resolve(appConfig.product).toFile
-    if (!productFolder.exists()) productFolder.mkdirs()
-
-    appConfig.projects.foreach { project =>
-      val repoFolder = new File(inputFolder, project)
-      val projectOutputFolder = new File(productFolder, project)
-
-      if (repoFolder.exists() && repoFolder.isDirectory) {
-        if (!projectOutputFolder.exists()) projectOutputFolder.mkdirs()
-        logger.info(s"Processing repository: ${repoFolder.getName}")
-        // Add repository-specific processing logic here
-      } else {
-        logger.warn(s"Repository folder not found: ${repoFolder.getAbsolutePath}")
-      }
+    appConfig: Option[AppConfig]
+  ): Unit =
+    appConfig match {
+      case Some(AppConfig(product, projects)) =>
+        projects.foreach { project =>
+          val repoFolder = new File(inputFolder, project)
+          if (repoFolder.exists() && repoFolder.isDirectory) {
+            val projectOutputFolder = outputFolder.toPath.resolve(product).resolve(project).toFile
+            processSingleRepository(repoFolder, config, projectOutputFolder)
+          }
+        }
+      case None =>
+        inputFolder
+          .listFiles()
+          .filter(_.isDirectory)
+          .foreach { repoFolder =>
+            val projectOutputFolder = outputFolder.toPath.resolve(repoFolder.getName).toFile
+            processSingleRepository(repoFolder, config, projectOutputFolder)
+          }
     }
+
+  private def processSingleRepository(repoFolder: File, config: Config, projectOutputFolder: File): Unit = {
+    if (!projectOutputFolder.exists()) projectOutputFolder.mkdirs()
+    logger.info(s"Processing repository: ${repoFolder.getName}")
+
+    val protoFiles = findFilesWithExtension(repoFolder, "proto")
+    val scalaFiles = findFilesWithExtension(repoFolder, "scala")
+    val routesConfFiles = findRoutesConfFiles(repoFolder)
+
+    // Process gRPC services from .proto files
+    val allServices = protoFiles.flatMap(file => ProtobufParserUtil.parseFile(file.toString)).toSet
+
+    // Process service calls from .scala files
+    val enrichedServiceCalls = scalaFiles.flatMap { file =>
+      val sourceCode = Files.readString(file.toPath, StandardCharsets.UTF_8)
+      InjectedServiceAnalyzer.analyzeServiceCalls(sourceCode, file.getName)
+    }.toSet
+
+    // Process REST endpoints from routes.conf files
+    val restEndpoints = routesConfFiles.flatMap { file =>
+      val content = Files.readString(file.toPath, StandardCharsets.UTF_8)
+      RoutesParser.parseRoutes(content).map(e => RestEndpoint(e.method, e.path, e.controller, e.inputParameters))
+    }.toSet
+
+    val projectModel = ProjectModel(
+      name = repoFolder.getName,
+      repository = s"${config.githubUrl}/${config.organization}/${repoFolder.getName}",
+      services = allServices,
+      dependencies = Set(ProjectDependency(enrichedServiceCalls)),
+      restEndpoints = restEndpoints
+    )
+
+    val modelOutputPath = projectOutputFolder.toPath.resolve("model.json").toFile
+    ProjectExtractorUtil.writeProjectModelToJson(projectModel, modelOutputPath)
+  }
+
+  private def findFilesWithExtension(baseDir: File, extension: String): Seq[File] = {
+    val result = mutable.Buffer[File]()
+    val matcher = s".*\\.$extension$$".r
+
+    Files.walkFileTree(
+      baseDir.toPath,
+      new SimpleFileVisitor[java.nio.file.Path]() {
+        override def visitFile(file: java.nio.file.Path, attrs: BasicFileAttributes): FileVisitResult = {
+          if (matcher.findFirstIn(file.toString).isDefined) result += file.toFile
+          FileVisitResult.CONTINUE
+        }
+      }
+    )
+    result.toSeq
+  }
+
+  private def findRoutesConfFiles(baseDir: File): Seq[File] = {
+    val result = mutable.Buffer[File]()
+
+    Files.walkFileTree(
+      baseDir.toPath,
+      new SimpleFileVisitor[java.nio.file.Path]() {
+        override def visitFile(file: java.nio.file.Path, attrs: BasicFileAttributes): FileVisitResult = {
+          if (file.getFileName.toString == "routes" || file.getFileName.toString == "routes.conf") {
+            result += file.toFile
+          }
+          FileVisitResult.CONTINUE
+        }
+      }
+    )
+    result.toSeq
   }
 }

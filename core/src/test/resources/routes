@@ -1,0 +1,64 @@
+# GRPC Services
+->          /                                                                 com.ncl.vacation.controllers.ReflectionRouter
+->          /                                                                 com.ncl.vacation.VacationService
+->          /                                                                 com.ncl.vacation.paymentcoupons.PaymentCouponService
+->          /                                                                 com.ncl.common.play.DMNViewRouter
+->           /                                                                com.ncl.common.play.HealthcheckController
+
+GET         /diagnostic/build-info                                            @com.ncl.common.play.DiagnosticController.buildInfo
+GET         /diagnostic/akka-cluster-members                                  @com.ncl.common.play.DiagnosticController.akkaClusterMembers
+
+# vacation controller
+GET         /api/v0/vacation/by-compatible-id/:compatibleId                   com.ncl.vacation.controllers.VacationController.getVacationByCompatibleId(compatibleId: String)
+GET         /api/v0/vacation/by-workspace-id/:workspaceId                     com.ncl.vacation.controllers.VacationController.getVacationByWorkspaceId(workspaceId: String)
+GET         /api/v0/vacations/by-compatible-id/:compatibleId                  com.ncl.vacation.controllers.VacationController.getVacationByCompatibleId(compatibleId: String)
+POST        /api/v0/vacations/cancel-guest                                    com.ncl.vacation.controllers.VacationController.cancelGuest
+POST        /api/v0/vacations/change-stateroom-code                           com.ncl.vacation.controllers.VacationController.changeStateroomCode
+POST        /api/v0/vacations/price-transient                                 com.ncl.vacation.controllers.VacationController.priceTransientVacation
+POST        /api/v0/vacations/cancel-by-displacements                         com.ncl.vacation.controllers.VacationController.cancelDisplacements
+GET         /api/v0/vacations/invoice-line-item-types                         com.ncl.vacation.controllers.VacationController.getInvoiceLineItemTypes
+GET         /api/v0/vacations/list                                            com.ncl.vacation.controllers.VacationController.listVacations(pageSize: Option[Int], pageIndex: Option[Int])
+GET         /api/v0/vacations/update-guest/:loyaltyId                         com.ncl.vacation.controllers.VacationController.updateGuest(loyaltyId: String)
+GET         /api/v0/vacations/:vacationId/cleanup-change-metadata             com.ncl.vacation.controllers.VacationController.cleanupChangeMetadata(vacationId: java.util.UUID)
+POST        /api/v0/vacation/backfill/:vacationDisplayId                      com.ncl.vacation.controllers.VacationController.backfill(vacationDisplayId: String)
+
+# vacation history controller
+GET         /api/v0/vacations/history                                         com.ncl.vacation.controllers.VacationHistoryController.getVacationHistoryLogs()
+GET         /api/v0/vacations/:vacationId/history                             com.ncl.vacation.controllers.VacationHistoryController.getVacationHistoryLogsByVacation(vacationId: java.util.UUID)
+GET         /api/v0/vacations/history/:logId                                  com.ncl.vacation.controllers.VacationHistoryController.getVacationHistoryLog(logId: Int)
+GET         /api/v0/vacations/history/:logId/diff                             com.ncl.vacation.controllers.VacationHistoryController.getVacationHistoryLogDiff(logId: Int)
+GET         /api/v0/vacations/changes                                         com.ncl.vacation.controllers.VacationHistoryController.getVacationChangeLogs()
+GET         /api/v0/vacations/:vacationId/changes                             com.ncl.vacation.controllers.VacationHistoryController.getVacationChangeLogsByVacation(vacationId: java.util.UUID)
+GET         /api/v0/vacations/changes/:logId                                  com.ncl.vacation.controllers.VacationHistoryController.getVacationChangeLog(logId: Int)
+GET         /api/v0/vacations/changes/:logId/diff                             com.ncl.vacation.controllers.VacationHistoryController.getVacationChangeLogDiff(logId: Int)
+
+GET         /api/v0/experiences/sync                                          com.ncl.vacation.controllers.VacationExperienceController.syncExperiences
+GET         /api/v0/experiences/sync-ground-transfers                         com.ncl.vacation.controllers.VacationExperienceController.syncGroundTransfersExperienceComponents
+POST        /api/v0/experiences/sync-wifi                                     com.ncl.vacation.controllers.VacationExperienceController.syncWifiExperienceComponents
+POST        /api/v0/experiences/sync-with-sailings                            com.ncl.vacation.controllers.VacationExperienceController.syncExperiencesWithSailings
+POST        /api/v0/experiences/sync-stateroom-configurations                 com.ncl.vacation.controllers.VacationExperienceController.syncSailingStateroomExperienceConfigurations(syncSailingStateroomExperienceComponents: Option[Boolean], syncPricingInventory: Option[Boolean])
+GET         /api/v0/experiences/sync-bundledairs                              com.ncl.vacation.controllers.VacationExperienceController.syncBundledAirExperienceComponents
+GET         /api/v0/experiences/sync-travelprotection                         com.ncl.vacation.controllers.VacationExperienceController.syncTravelProtectionExperienceComponents
+GET         /api/v0/experiences/sync-shorex                                   com.ncl.vacation.controllers.VacationExperienceController.syncShorexExperienceComponents
+POST        /api/v0/experiences/sync-inventory                                com.ncl.vacation.controllers.VacationExperienceController.syncStateroomInventory
+GET         /api/v0/experiences/:experienceType                               com.ncl.vacation.controllers.VacationExperienceController.listExperiences(experienceType: String, pageIndex: Option[Int], pageSize: Option[Int])
+GET         /api/v0/experiences/by-id/:id                                     com.ncl.vacation.controllers.VacationExperienceController.getExperienceComponent(id: String)
+GET         /api/v0/experiences/sailing-itinerary/:experienceDisplayId        com.ncl.vacation.controllers.VacationExperienceController.getSailingItinerary(experienceDisplayId: String)
+
+GET         /api/v0/promotions/:promoCode                                     com.ncl.vacation.controllers.PromotionsController.getPromotion(promoCode)
+GET         /api/v0/promotions/by-id/:promoId                                 com.ncl.vacation.controllers.PromotionsController.getPromotionById(promoId: java.util.UUID)
+GET         /api/v0/paymentcoupons/:paymentCouponCode                         com.ncl.vacation.controllers.PromotionsController.getPaymentCoupon(paymentCouponCode)
+GET         /api/v0/paymentcoupons/by-id/:paymentCouponId                     com.ncl.vacation.controllers.PromotionsController.getPaymentCouponById(paymentCouponId: java.util.UUID)
+GET         /api/v0/promotionalcoupons/:couponCode                            com.ncl.vacation.controllers.PromotionsController.getPromotionalCoupon(couponCode)
+GET         /api/v0/promotionalcoupons/by-id/:couponId                        com.ncl.vacation.controllers.PromotionsController.getPromotionalCouponById(couponId: java.util.UUID)
+POST        /api/v0/promotions/sync-promotions                                com.ncl.vacation.controllers.PromotionsController.syncPromotions
+POST        /api/v0/promotions/sync-payment-coupons                           com.ncl.vacation.controllers.PromotionsController.syncPaymentCoupons
+POST        /api/v0/promotions/sync-promotional-coupons                       com.ncl.vacation.controllers.PromotionsController.syncPromotionalCoupons
+POST        /api/v0/pricing/sync-service-charge-price-configurations          com.ncl.vacation.controllers.PricingController.syncServiceChargePriceConfigurations
+POST        /api/v0/pricing/sync-get-taxes                                    com.ncl.vacation.controllers.PricingController.syncGetTaxes
+GET         /api/v0/sync-special-requests                                     com.ncl.vacation.controllers.SpecialRequestsController.syncSpecialRequests
+
+POST        /api/v0/farecache/run                                             com.ncl.farecache.controllers.FareCacheController.runFareCache(syncPricing: Option[Boolean], syncInventory: Option[Boolean], startingFromExperienceId: Option[java.util.UUID])
+POST        /api/v0/farecache/refresh-package-data                            com.ncl.farecache.controllers.FareCacheController.refreshPackageData(syncInventory: Option[Boolean])
+
+GET         /api/v0/modifiable-behaviors/list                                 com.ncl.vacation.controllers.ModifiableBehaviorController.listModifiableBehaviors(continuationToken: Option[String])
