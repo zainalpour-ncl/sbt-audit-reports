@@ -10,6 +10,8 @@ object Dependencies {
   val scalaTestVersion = "3.2.15"
   val commonIOVersion = "2.11.0"
   val circeVersion = "0.14.10"
+  val slf4jVersion = "2.0.16"
+  val logbackVersion = "1.5.12"
 
   val coreDependencies: Seq[ModuleID] = Seq(
     "org.scalameta" %% "scalameta" % scalaMetaVersion,
@@ -18,6 +20,8 @@ object Dependencies {
     "io.circe" %% "circe-core" % circeVersion,
     "io.circe" %% "circe-generic" % circeVersion,
     "io.circe" %% "circe-parser" % circeVersion,
+    "org.slf4j" % "slf4j-api" % slf4jVersion,
+    "ch.qos.logback" % "logback-classic" % logbackVersion,
     "org.scalatest" %% "scalatest" % scalaTestVersion % Test
   )
 
