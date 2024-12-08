@@ -41,7 +41,8 @@ lazy val auditReportCli = (project in file("cli"))
     libraryDependencies ++= Seq(
       "com.github.scopt" %% "scopt" % "4.1.0",
       "me.tongfei" % "progressbar" % "0.10.1",
-      "com.lihaoyi" %% "fansi" % "0.5.0"
+      "com.lihaoyi" %% "fansi" % "0.5.0",
+      "com.typesafe" % "config" % "1.4.3"
     ),
     assembly / assemblyJarName := "audit-report-cli.jar",
     assembly / assemblyMergeStrategy := {

@@ -2,12 +2,13 @@ package com.ncl.audit.cli
 
 import com.ncl.audit.RoutesParser
 import com.ncl.audit._
+import com.typesafe.config.ConfigFactory
+import com.typesafe.config.ConfigValueType
 import fansi.Color._
 import me.tongfei.progressbar.ProgressBarBuilder
 import me.tongfei.progressbar.ProgressBarStyle
 import org.slf4j.LoggerFactory
 import scopt.OParser
-
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
@@ -17,6 +18,7 @@ import java.nio.file.Paths
 import java.nio.file.SimpleFileVisitor
 import scala.collection.mutable
 import scala.io.Source
+import scala.jdk.CollectionConverters._
 import scala.sys.process._
 import scala.util.Try
 
@@ -71,7 +73,7 @@ object ProtobufAuditCLI extends App {
   OParser.parse(parser, args, Config()) match {
     case Some(config) =>
       if (!checkDependencies(Seq("gh", "jq"))) {
-        logger.error(Red("Required applications are missing. Please ensure both 'gh' and 'jq' are installed.").render)
+        logger.error(Red("Required applications 'gh' and 'jq' are missing.").render)
         sys.exit(1)
       }
 
@@ -221,6 +223,7 @@ object ProtobufAuditCLI extends App {
     val protoFiles = findFilesWithExtension(repoFolder, "proto")
     val scalaFiles = findFilesWithExtension(repoFolder, "scala")
     val routesConfFiles = findRoutesConfFiles(repoFolder)
+    val samlConfFiles = findSamlConfFiles(repoFolder)
 
     // Process gRPC services from .proto files
     val allServices = protoFiles.flatMap(file => ProtobufParserUtil.parseFile(file.toString)).toSet
@@ -237,12 +240,16 @@ object ProtobufAuditCLI extends App {
       RoutesParser.parseRoutes(content).map(e => RestEndpoint(e.method, e.path, e.controller, e.inputParameters))
     }.toSet
 
+    // Process SAML configurations
+    val samlConfigurations = samlConfFiles.flatMap(parseSamlConfiguration).toSet
+
     ProjectModel(
       name = repoFolder.getName,
       repository = s"${config.githubUrl}/${config.organization}/${repoFolder.getName}",
       services = allServices,
       dependencies = Set(ProjectDependency(enrichedServiceCalls)),
-      restEndpoints = restEndpoints
+      restEndpoints = restEndpoints,
+      samlConfigurations = samlConfigurations
     )
   }
 
@@ -264,12 +271,12 @@ object ProtobufAuditCLI extends App {
 
   private def findRoutesConfFiles(baseDir: File): Seq[File] = {
     val result = mutable.Buffer[File]()
-
     Files.walkFileTree(
       baseDir.toPath,
       new SimpleFileVisitor[java.nio.file.Path]() {
         override def visitFile(file: java.nio.file.Path, attrs: BasicFileAttributes): FileVisitResult = {
-          if (file.getFileName.toString == "routes" || file.getFileName.toString == "routes.conf") {
+          val name = file.getFileName.toString
+          if ((name == "routes" || name == "routes.conf") && !file.toString.contains("test")) {
             result += file.toFile
           }
           FileVisitResult.CONTINUE
@@ -277,6 +284,53 @@ object ProtobufAuditCLI extends App {
       }
     )
     result.toSeq
+  }
+
+  private def findSamlConfFiles(baseDir: File): Seq[File] = {
+    val result = mutable.Buffer[File]()
+    Files.walkFileTree(
+      baseDir.toPath,
+      new SimpleFileVisitor[java.nio.file.Path]() {
+        override def visitFile(file: java.nio.file.Path, attrs: BasicFileAttributes): FileVisitResult = {
+          val name = file.getFileName.toString
+          val pathString = file.toString
+          if (name.endsWith(".conf") && !pathString.contains("test")) {
+            result += file.toFile
+          }
+          FileVisitResult.CONTINUE
+        }
+      }
+    )
+    result.toSeq
+  }
+
+  private def parseSamlConfiguration(confFile: File): Option[SamlConfiguration] = {
+    val config = ConfigFactory.parseFile(confFile)
+    if (config.hasPath("saml")) {
+      val samlConf = config.getConfig("saml")
+      if (samlConf.hasPath("roles") && samlConf.hasPath("profile-groups-attribute")) {
+        val profileGroupsAttribute = samlConf.getString("profile-groups-attribute")
+        val rolesConfig = samlConf.getConfig("roles")
+
+        val roles = rolesConfig
+          .entrySet()
+          .asScala
+          .filter(_.getValue.valueType() == ConfigValueType.LIST)
+          .map { entry =>
+            val roleName = entry.getKey
+            val groups = rolesConfig.getStringList(roleName).asScala.toSeq
+            roleName -> groups
+          }
+          .toMap
+
+        val definedIn = confFile.getPath
+        Some(SamlConfiguration(profileGroupsAttribute, roles, definedIn))
+      } else {
+        None
+      }
+    } else {
+      None
+    }
   }
 
   private def resolveProjectDependencies(models: Seq[ProjectModel]): Seq[ProjectModel] = {
@@ -294,7 +348,7 @@ object ProtobufAuditCLI extends App {
             case Some((pName, pRepo)) =>
               ProjectRef(pName, pRepo)
             case None =>
-              ProjectRef() // defaults to NA/NA
+              ProjectRef()
           }
         }
 

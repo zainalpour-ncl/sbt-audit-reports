@@ -6,8 +6,12 @@ case class ProjectRef(name: String = "NA", repository: String = "NA")
 case class ProjectDependency(serviceCalls: Set[ServiceCall], project: ProjectRef = ProjectRef())
 case class ServiceCall(serviceName: String, calledMethods: Set[MethodCall], calledIn: Option[String] = None)
 case class MethodCall(methodName: String, inputType: Option[String] = None, outputType: Option[String] = None)
+case class SamlConfiguration(
+  profileGroupsAttribute: String,
+  roles: Map[String, Seq[String]],
+  definedIn: String
+)
 
-// New model for REST endpoints
 case class RestEndpoint(
   method: String,
   path: String,
@@ -15,11 +19,11 @@ case class RestEndpoint(
   inputParameters: Option[String] = None
 )
 
-// Extend the project model to include REST endpoints
 case class ProjectModel(
   name: String,
   repository: String,
   services: Set[Service],
   dependencies: Set[ProjectDependency],
-  restEndpoints: Set[RestEndpoint] = Set.empty
+  restEndpoints: Set[RestEndpoint] = Set.empty,
+  samlConfigurations: Set[SamlConfiguration] = Set.empty
 )
