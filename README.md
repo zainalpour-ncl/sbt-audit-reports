@@ -71,11 +71,20 @@ You can specify repositories to process using a configuration file in JSON forma
 
 ```json
 {
-  "product": "CVS",
-  "projects": [
-    "proxima-vacation-service",
-    "another-service"
-  ]
+   "products": [
+      {
+         "product": "CVS",
+         "projects": [
+            "proxima-vacation-service"
+         ]
+      },
+      {
+         "product": "booking",
+         "projects": [
+            "zero-booking-headquarters"
+         ]
+      }
+   ]
 }
 ```
 

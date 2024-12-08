@@ -9,6 +9,7 @@ import me.tongfei.progressbar.ProgressBarBuilder
 import me.tongfei.progressbar.ProgressBarStyle
 import org.slf4j.LoggerFactory
 import scopt.OParser
+
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
@@ -34,7 +35,8 @@ object ProtobufAuditCLI extends App {
     configFile: Option[File] = None
   )
 
-  case class AppConfig(product: String = "ncl", projects: List[String])
+  case class ProductConfig(product: String, projects: List[String])
+  case class AppConfig(products: List[ProductConfig])
 
   val builder = OParser.builder[Config]
   val parser = {
@@ -66,7 +68,7 @@ object ProtobufAuditCLI extends App {
         .optional()
         .valueName("<file>")
         .action((x, c) => c.copy(configFile = Some(x)))
-        .text("Configuration file specifying product and projects.")
+        .text("Configuration file specifying products and projects.")
     )
   }
 
@@ -82,7 +84,7 @@ object ProtobufAuditCLI extends App {
       val baseFolder = config.inputFolder.getOrElse(new File("/tmp/cloned_repos"))
 
       logger.info(Magenta("Cloning repositories if necessary...").render)
-      val clonedRepos = cloneRepositories(config.githubUrl, config.organization, baseFolder, appConfig)
+      cloneRepositories(config.githubUrl, config.organization, baseFolder, appConfig)
       logger.info(Green("Cloning complete.").render)
 
       logger.info(Magenta("Processing repositories...").render)
@@ -94,7 +96,7 @@ object ProtobufAuditCLI extends App {
       logger.info(Green("Dependency resolution complete.").render)
 
       logger.info(Magenta("Writing models to disk...").render)
-      writeModelsToDisk(resolvedModels, config.outputFolder, appConfig)
+      writeModelsToDisk(resolvedModels, config.outputFolder)
       logger.info(Green("All models have been successfully written.").render)
 
     case _ =>
@@ -128,11 +130,12 @@ object ProtobufAuditCLI extends App {
     organization: String,
     baseFolder: File,
     appConfig: Option[AppConfig]
-  ): Seq[String] = {
+  ): Unit = {
     if (!baseFolder.exists()) baseFolder.mkdirs()
 
     val repos = appConfig match {
-      case Some(config) => config.projects
+      case Some(AppConfig(products)) =>
+        products.flatMap(_.projects)
       case None =>
         logger.info(Cyan(s"Listing repositories for organization: $organization").render)
         val listCmd = s"gh repo list $organization --json name | jq -r '.[].name'"
@@ -164,8 +167,6 @@ object ProtobufAuditCLI extends App {
       }
     finally
       pb.close()
-
-    repos
   }
 
   private def processRepositories(
@@ -173,29 +174,29 @@ object ProtobufAuditCLI extends App {
     inputFolder: File,
     appConfig: Option[AppConfig]
   ): Seq[ProjectModel] = {
-    val projects = appConfig match {
-      case Some(AppConfig(product, pjs)) =>
-        pjs.map(p => (product, p))
+    val productProjectTuples = appConfig match {
+      case Some(AppConfig(products)) =>
+        products.flatMap(p => p.projects.map(proj => (p.product, proj)))
       case None =>
         val dirs = inputFolder.listFiles().filter(_.isDirectory).map(d => ("ncl", d.getName)).toSeq
         dirs
     }
 
-    if (projects.nonEmpty) {
-      logger.info(Yellow(s"Processing ${projects.size} repositories...").render)
+    if (productProjectTuples.nonEmpty) {
+      logger.info(Yellow(s"Processing ${productProjectTuples.size} repositories...").render)
     } else {
       logger.warn(Yellow("No repositories found to process.").render)
     }
 
     val pb = new ProgressBarBuilder()
       .setTaskName("Processing Repos")
-      .setInitialMax(projects.size)
+      .setInitialMax(productProjectTuples.size)
       .setStyle(ProgressBarStyle.UNICODE_BLOCK)
       .build()
 
     val models =
       try
-        projects.flatMap { case (product, projectName) =>
+        productProjectTuples.flatMap { case (product, projectName) =>
           val repoFolder = new File(inputFolder, projectName)
           if (repoFolder.exists() && repoFolder.isDirectory) {
             val model = processSingleRepository(repoFolder, config, product, projectName)
@@ -225,27 +226,28 @@ object ProtobufAuditCLI extends App {
     val routesConfFiles = findRoutesConfFiles(repoFolder)
     val samlConfFiles = findSamlConfFiles(repoFolder)
 
-    // Process gRPC services from .proto files
+    // gRPC services
     val allServices = protoFiles.flatMap(file => ProtobufParserUtil.parseFile(file.toString)).toSet
 
-    // Process service calls from .scala files
+    // service calls
     val enrichedServiceCalls = scalaFiles.flatMap { file =>
       val sourceCode = Files.readString(file.toPath, StandardCharsets.UTF_8)
       InjectedServiceAnalyzer.analyzeServiceCalls(sourceCode, file.getName)
     }.toSet
 
-    // Process REST endpoints from routes.conf files
+    // REST endpoints
     val restEndpoints = routesConfFiles.flatMap { file =>
       val content = Files.readString(file.toPath, StandardCharsets.UTF_8)
       RoutesParser.parseRoutes(content).map(e => RestEndpoint(e.method, e.path, e.controller, e.inputParameters))
     }.toSet
 
-    // Process SAML configurations
+    // SAML configurations
     val samlConfigurations = samlConfFiles.flatMap(parseSamlConfiguration).toSet
 
     ProjectModel(
       name = repoFolder.getName,
       repository = s"${config.githubUrl}/${config.organization}/${repoFolder.getName}",
+      product = product,
       services = allServices,
       dependencies = Set(ProjectDependency(enrichedServiceCalls)),
       restEndpoints = restEndpoints,
@@ -334,19 +336,23 @@ object ProtobufAuditCLI extends App {
   }
 
   private def resolveProjectDependencies(models: Seq[ProjectModel]): Seq[ProjectModel] = {
-    logger.info(Cyan("Building service-to-project mapping...").render)
-    val serviceToProject = models.flatMap { model =>
-      model.services.map(svc => svc.name -> (model.name, model.repository))
-    }.toMap
-    logger.info(Cyan(s"Mapping completed. Found ${serviceToProject.size} services.").render)
+    logger.info(fansi.Color.Cyan("Building service-to-project mapping...").render)
 
-    logger.info(Cyan("Updating project dependencies with project references...").render)
+    // Map: serviceName -> (projectName, projectRepository, product)
+    val serviceToProject = models.flatMap { model =>
+      model.services.map(svc => svc.name -> (model.name, model.repository, model.product))
+    }.toMap
+
+    logger.info(fansi.Color.Cyan(s"Mapping completed. Found ${serviceToProject.size} services.").render)
+
+    logger.info(fansi.Color.Cyan("Updating project dependencies with project references...").render)
+
     val updatedModels = models.map { model =>
       val updatedDependencies = model.dependencies.flatMap { dep =>
         val callsByProject: Map[ProjectRef, Set[ServiceCall]] = dep.serviceCalls.groupBy { sc =>
           serviceToProject.get(sc.serviceName) match {
-            case Some((pName, pRepo)) =>
-              ProjectRef(pName, pRepo)
+            case Some((pName, pRepo, pProduct)) =>
+              ProjectRef(pName, pRepo, pProduct)
             case None =>
               ProjectRef()
           }
@@ -359,16 +365,14 @@ object ProtobufAuditCLI extends App {
       model.copy(dependencies = updatedDependencies)
     }
 
-    logger.info(Green("Dependency update completed.").render)
+    logger.info(fansi.Color.Green("Dependency update completed.").render)
     updatedModels
   }
 
   private def writeModelsToDisk(
     models: Seq[ProjectModel],
-    outputFolder: File,
-    appConfig: Option[AppConfig]
+    outputFolder: File
   ): Unit = {
-    val product = appConfig.map(_.product).getOrElse("ncl")
     val total = models.size
     logger.info(Yellow(s"Writing $total models to disk...").render)
 
@@ -380,7 +384,7 @@ object ProtobufAuditCLI extends App {
 
     try
       models.foreach { model =>
-        val projectOutputFolder = outputFolder.toPath.resolve(product).resolve(model.name).toFile
+        val projectOutputFolder = outputFolder.toPath.resolve(model.product).resolve(model.name).toFile
         if (!projectOutputFolder.exists()) projectOutputFolder.mkdirs()
         val modelOutputPath = projectOutputFolder.toPath.resolve("model.json").toFile
         ProjectExtractorUtil.writeProjectModelToJson(model, modelOutputPath)
