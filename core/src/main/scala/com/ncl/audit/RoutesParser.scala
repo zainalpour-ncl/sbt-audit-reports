@@ -2,50 +2,51 @@ package com.ncl.audit
 
 import fastparse.NoWhitespace._
 import fastparse._
-
-case class Endpoint(
-  method: Option[String],
-  path: String,
-  controller: String,
-  inputParameters: Option[String] = None
-)
+import org.slf4j.LoggerFactory
 
 object RoutesParser {
+
+  private val logger = LoggerFactory.getLogger(RoutesParser.getClass)
+
   def comment[_: P]: P[Unit] = P("#" ~ CharsWhile(_ != '\n', 0) ~ "\n")
 
   def whitespace[_: P]: P[Unit] = P(CharsWhileIn(" \t").?)
 
   def emptyLine[_: P]: P[Unit] = P(whitespace ~ "\n")
 
-  def identifier[_: P]: P[String] = P(CharsWhile(c => c.isLetterOrDigit || c == '.' || c == '_').!)
+  def identifier[_: P]: P[String] =
+    P(CharsWhile(c => c.isLetterOrDigit || c == '.' || c == '_').!)
 
   def params[_: P]: P[String] = P("(" ~ CharsWhile(_ != ')').! ~ ")")
 
+  // Mandatory HTTP methods
   def method[_: P]: P[String] = P(("GET" | "POST" | "PUT" | "DELETE" | "PATCH").!)
 
   def path[_: P]: P[String] = P(CharsWhile(_ != ' ', 0).!)
 
-  def controller[_: P]: P[String] = P(identifier ~ ("." ~ identifier).rep).map { case (first, rest) =>
-    (first +: rest).mkString(".")
-  }
+  def controller[_: P]: P[String] =
+    P(identifier ~ ("." ~ identifier).rep).map { case (first, rest) => (first +: rest).mkString(".") }
 
   def handler[_: P]: P[String] = P("@" ~ controller | controller)
 
-  def routeLine[_: P]: P[Endpoint] = P(
-    (method.? ~ whitespace ~ path ~ whitespace ~ handler ~ params.?).map { case (m, p, c, i) =>
-      Endpoint(m, p, c, i)
-    }
-  )
+  // Route line now requires a method at the start
+  def routeLine[_: P]: P[RestEndpoint] = P(
+    method ~ whitespace ~ path ~ whitespace ~ handler ~ params.?
+  ).map { case (m, p, c, i) =>
+    RestEndpoint(m, p, c, i)
+  }
 
-  def parser[_: P]: P[Seq[Endpoint]] = P((comment | emptyLine | routeLine).rep.map(_.collect { case e: Endpoint =>
-    e
-  }))
+  // GRPC lines starting with "->" should be ignored
+  def grpcLine[_: P]: P[Unit] = P("->" ~ CharsWhile(_ != '\n', 0) ~ "\n")
 
-  def parseRoutes(input: String): Seq[Endpoint] =
+  def parser[_: P]: P[Seq[RestEndpoint]] =
+    P((grpcLine | comment | emptyLine | routeLine).rep.map(_.collect { case e: RestEndpoint => e }))
+
+  def parseRoutes(input: String): Seq[RestEndpoint] =
     parse(input, parser(_)) match {
       case Parsed.Success(value, _) => value
       case f: Parsed.Failure =>
-        println(s"Parsing failed: $f")
+        logger.error(s"Failed to parse routes: ${f.msg}")
         Seq.empty
     }
 }
