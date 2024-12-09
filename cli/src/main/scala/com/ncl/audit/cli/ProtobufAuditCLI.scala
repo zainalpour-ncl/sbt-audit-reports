@@ -261,7 +261,9 @@ object ProtobufAuditCLI extends App {
     // REST endpoints
     val restEndpoints = routesConfFiles.flatMap { file =>
       val content = Files.readString(file.toPath, StandardCharsets.UTF_8)
-      RoutesParser.parseRoutes(content).map(e => RestEndpoint(e.method, e.path, e.controller, e.inputParameters))
+      RoutesParser
+        .parseRoutes(content)
+        .map(e => e.copy(inputParameters = e.inputParameters.map(_.replaceAll(",", ";"))))
     }.toSet
 
     // SAML configurations
