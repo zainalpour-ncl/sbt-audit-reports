@@ -3,7 +3,7 @@
       {
          "product": "Accounting HQ",
          "projects": [
-            "proxima-accounting-vacation-service",
+            "proxima-accounting-vacations-service",
             "proxima-accounting-headquarters",
             "proxima-accounting-journal-service",
             "zero-accounting-data-service",
@@ -13,7 +13,7 @@
       {
          "product": "Charging and Billing",
          "projects": [
-            "proxima-fintech-gateway-servive",
+            "proxima-fintech-gateway-service",
             "zero-cruise-vacation-service"
          ]
       },
@@ -41,7 +41,7 @@
             "zero-ship-import-service",
             "zero-quest",
             "proxima-coupon-service",
-            "proxima-guest-advocate-headquarters",
+            "proxima-guest-advocate-headquarter",
             "zero-sailing-service",
             "zero-category-service"
          ]
@@ -50,7 +50,7 @@
          "product": "Core Vacation Services",
          "projects": [
             "proxima-vacation-service",
-            "proxima-dmn-vaction",
+            "proxima-dmn-vacation",
             "proxima-dmn-core",
             "proxima-ota-routing-service",
             "zero-common",
@@ -59,7 +59,7 @@
             "zero-common-types",
             "zero-common-play",
             "zero-common-domain",
-            "zero-common-legacy-data"
+            "zero-common-legacydata"
          ]
       },
       {

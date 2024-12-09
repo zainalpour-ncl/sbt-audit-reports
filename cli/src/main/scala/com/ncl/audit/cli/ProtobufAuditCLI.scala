@@ -178,6 +178,20 @@ object ProtobufAuditCLI extends App {
       pb.close()
   }
 
+  private def removeBaseFolder(model: ProjectModel, baseFolder: File): ProjectModel = {
+    val newServices = model.services.map { service =>
+      val newDefinedIn = service.definedIn.map { path =>
+        path.replace(baseFolder.getAbsolutePath, "")
+      }
+      service.copy(definedIn = newDefinedIn)
+    }
+    val newSamlConfigurations = model.samlConfigurations.map { saml =>
+      val newDefinedIn = saml.definedIn.replace(baseFolder.getAbsolutePath, "")
+      saml.copy(definedIn = newDefinedIn)
+    }
+    model.copy(services = newServices, samlConfigurations = newSamlConfigurations)
+  }
+
   private def processRepositories(
     config: Config,
     inputFolder: File,
@@ -208,7 +222,7 @@ object ProtobufAuditCLI extends App {
         productProjectTuples.flatMap { case (product, projectName) =>
           val repoFolder = new File(inputFolder, projectName)
           if (repoFolder.exists() && repoFolder.isDirectory) {
-            val model = processSingleRepository(repoFolder, config, product, projectName)
+            val model = removeBaseFolder(processSingleRepository(repoFolder, config, product, projectName), inputFolder)
             pb.step()
             Some(model)
           } else {
@@ -406,10 +420,12 @@ object ProtobufAuditCLI extends App {
 
     try
       models.foreach { model =>
-        val projectOutputFolder = outputFolder.toPath.resolve(model.product).resolve(model.name).toFile
-        if (!projectOutputFolder.exists()) projectOutputFolder.mkdirs()
-        val modelOutputPath = projectOutputFolder.toPath.resolve("model.json").toFile
-        ProjectExtractorUtil.writeProjectModelToJson(model, modelOutputPath)
+        if (Seq(model.services, model.dependencies, model.restEndpoints, model.samlConfigurations).exists(_.nonEmpty)) {
+          val projectOutputFolder = outputFolder.toPath.resolve(model.product).resolve(model.name).toFile
+          if (!projectOutputFolder.exists()) projectOutputFolder.mkdirs()
+          val modelOutputPath = projectOutputFolder.toPath.resolve("model.json").toFile
+          ProjectExtractorUtil.writeProjectModelToJson(model, modelOutputPath)
+        }
         pb.step()
       }
     finally
@@ -429,7 +445,8 @@ object ProtobufAuditCLI extends App {
    *   - Dependent_services.csv
    *   - Permission-role_matrix.csv
    */
-  def writeReports(models: Seq[ProjectModel], outputFolder: File): Unit = {
+  // scalastyle:off
+  private def writeReports(models: Seq[ProjectModel], outputFolder: File): Unit = {
     logger.info(Magenta("Generating per-project CSV reports...").render)
 
     for (model <- models) {
@@ -438,105 +455,113 @@ object ProtobufAuditCLI extends App {
       if (!projectOutputFolder.exists()) projectOutputFolder.mkdirs()
 
       // hosted_services-REST.csv
-      val restFile = new File(projectOutputFolder, "hosted_services-REST.csv")
-      logger.info(
-        Cyan(s"Writing REST endpoints report for ${model.product}/${model.name}: ${restFile.getAbsolutePath}").render
-      )
-      Using(new PrintWriter(new FileWriter(restFile))) { out =>
-        writeLine(out, "product,service,method,endpoint,arguments,response,implemented_by")
-        for (endpoint <- model.restEndpoints) {
-          val product = model.product
-          val service = model.name
-          val method = endpoint.method
-          val endpointPath = endpoint.path
-          val arguments = endpoint.inputParameters.getOrElse("")
-          val response = "" // TODO: response schema not captured
-          val implementedBy = endpoint.controller
-          // TODO: permissions, depends_on
-          writeLine(out, s"$product,$service,$method,$endpointPath,$arguments,$response,$implementedBy")
+      if (model.restEndpoints.nonEmpty) {
+        val restFile = new File(projectOutputFolder, "hosted_services-REST.csv")
+        logger.info(
+          Cyan(s"Writing REST endpoints report for ${model.product}/${model.name}: ${restFile.getAbsolutePath}").render
+        )
+        Using(new PrintWriter(new FileWriter(restFile))) { out =>
+          writeLine(out, "product,service,method,endpoint,arguments,response,implemented_by")
+          for (endpoint <- model.restEndpoints) {
+            val product = model.product
+            val service = model.name
+            val method = endpoint.method
+            val endpointPath = endpoint.path
+            val arguments = endpoint.inputParameters.getOrElse("")
+            val response = "" // TODO: response schema not captured
+            val implementedBy = endpoint.controller
+            // TODO: permissions, depends_on
+            writeLine(out, s"$product,$service,$method,$endpointPath,$arguments,$response,$implementedBy")
+          }
+        }.recover { case e: Exception =>
+          logger.error(Red(s"Failed to write REST endpoints report for ${model.name}: ${e.getMessage}").render)
         }
-      }.recover { case e: Exception =>
-        logger.error(Red(s"Failed to write REST endpoints report for ${model.name}: ${e.getMessage}").render)
       }
 
       // hosted_services-gRPC.csv
-      val grpcFile = new File(projectOutputFolder, "hosted_services-gRPC.csv")
-      logger.info(
-        Cyan(s"Writing gRPC endpoints report for ${model.product}/${model.name}: ${grpcFile.getAbsolutePath}").render
-      )
-      Using(new PrintWriter(new FileWriter(grpcFile))) { out =>
-        writeLine(out, "product,service,Endpoint,Argument,Response,DefinedIn,ImplementedIn")
-        for (svc <- model.services; method <- svc.methods) {
-          val product = model.product
-          val service = model.name
-          val endpoint = method.name
-          val argument = method.inputType
-          val response = method.outputType
-          val definedIn = svc.definedIn.getOrElse("")
-          val implementedIn = "" // TODO: determine implementedIn
-          // TODO: PublishesTo/WritesTo, ConsumesFrom/ReadsFrom
-          writeLine(out, s"$product,$service,$endpoint,$argument,$response,$definedIn,$implementedIn")
+      if (model.services.nonEmpty) {
+        val grpcFile = new File(projectOutputFolder, "hosted_services-gRPC.csv")
+        logger.info(
+          Cyan(s"Writing gRPC endpoints report for ${model.product}/${model.name}: ${grpcFile.getAbsolutePath}").render
+        )
+        Using(new PrintWriter(new FileWriter(grpcFile))) { out =>
+          writeLine(out, "product,service,Endpoint,Argument,Response,DefinedIn,ImplementedIn")
+          for (svc <- model.services; method <- svc.methods) {
+            val product = model.product
+            val service = model.name
+            val endpoint = method.name
+            val argument = method.inputType
+            val response = method.outputType
+            val definedIn = svc.definedIn.getOrElse("")
+            val implementedIn = "" // TODO: determine implementedIn
+            // TODO: PublishesTo/WritesTo, ConsumesFrom/ReadsFrom
+            writeLine(out, s"$product,$service,$endpoint,$argument,$response,$definedIn,$implementedIn")
+          }
+        }.recover { case e: Exception =>
+          logger.error(Red(s"Failed to write gRPC endpoints report for ${model.name}: ${e.getMessage}").render)
         }
-      }.recover { case e: Exception =>
-        logger.error(Red(s"Failed to write gRPC endpoints report for ${model.name}: ${e.getMessage}").render)
       }
 
       // Dependent_services.csv
-      val dependentFile = new File(projectOutputFolder, "Dependent_services.csv")
-      logger.info(
-        Cyan(
-          s"Writing dependent services report for ${model.product}/${model.name}: ${dependentFile.getAbsolutePath}"
-        ).render
-      )
-      Using(new PrintWriter(new FileWriter(dependentFile))) { out =>
-        writeLine(out, "Product,Service,Service_name,CallsTo,Endpoint,Argument,Response")
-        for (dep <- model.dependencies; sc <- dep.serviceCalls; m <- sc.calledMethods) {
-          val product = model.product
-          val service = model.name
-          val serviceName = sc.serviceName
-          val callsTo = dep.project.name
-          val endpoint = m.methodName
-          val argument = m.inputType.getOrElse("")
-          val response = m.outputType.getOrElse("")
-          writeLine(out, s"$product,$service,$serviceName,$callsTo,$endpoint,$argument,$response")
+      if (model.dependencies.nonEmpty) {
+        val dependentFile = new File(projectOutputFolder, "Dependent_services.csv")
+        logger.info(
+          Cyan(
+            s"Writing dependent services report for ${model.product}/${model.name}: ${dependentFile.getAbsolutePath}"
+          ).render
+        )
+        Using(new PrintWriter(new FileWriter(dependentFile))) { out =>
+          writeLine(out, "Product,Service,Service_name,CallsTo,Endpoint,Argument,Response")
+          for (dep <- model.dependencies; sc <- dep.serviceCalls; m <- sc.calledMethods) {
+            val product = model.product
+            val service = model.name
+            val serviceName = sc.serviceName
+            val callsTo = dep.project.name
+            val endpoint = m.methodName
+            val argument = m.inputType.getOrElse("")
+            val response = m.outputType.getOrElse("")
+            writeLine(out, s"$product,$service,$serviceName,$callsTo,$endpoint,$argument,$response")
+          }
+        }.recover { case e: Exception =>
+          logger.error(Red(s"Failed to write dependent services report for ${model.name}: ${e.getMessage}").render)
         }
-      }.recover { case e: Exception =>
-        logger.error(Red(s"Failed to write dependent services report for ${model.name}: ${e.getMessage}").render)
       }
 
       // Permission-role_matrix.csv
-      // For this project only, collect roles and groups from samlConfigurations.
-      val permissionFile = new File(projectOutputFolder, "Permission-role_matrix.csv")
-      logger.info(
-        Cyan(
-          s"Writing permission-role matrix for ${model.product}/${model.name}: ${permissionFile.getAbsolutePath}"
-        ).render
-      )
-      val allRoles = mutable.Set[String]()
-      val allGroups = mutable.Set[String]()
+      if (model.samlConfigurations.nonEmpty) {
+        // For this project only, collect roles and groups from samlConfigurations.
+        val permissionFile = new File(projectOutputFolder, "Permission-role_matrix.csv")
+        logger.info(
+          Cyan(
+            s"Writing permission-role matrix for ${model.product}/${model.name}: ${permissionFile.getAbsolutePath}"
+          ).render
+        )
+        val allRoles = mutable.Set[String]()
+        val allGroups = mutable.Set[String]()
 
-      for (saml <- model.samlConfigurations; (role, groups) <- saml.roles) {
-        allRoles += role
-        allGroups ++= groups
-      }
-
-      val sortedRoles = allRoles.toSeq.sorted
-      val sortedGroups = allGroups.toSeq.sorted
-
-      Using(new PrintWriter(new FileWriter(permissionFile))) { out =>
-        writeLine(out, ("permission" +: sortedRoles).mkString(","))
-        for (group <- sortedGroups) {
-          val row = sortedRoles.map { role =>
-            val hasGroup = model.samlConfigurations.exists(saml => saml.roles.get(role).exists(_.contains(group)))
-            if (hasGroup) "true" else "false"
-          }
-          writeLine(out, (group +: row).mkString(","))
+        for (saml <- model.samlConfigurations; (role, groups) <- saml.roles) {
+          allRoles += role
+          allGroups ++= groups
         }
-      }.recover { case e: Exception =>
-        logger.error(Red(s"Failed to write permission-role matrix for ${model.name}: ${e.getMessage}").render)
-      }
 
-      logger.info(Green(s"CSV reports generated for ${model.product}/${model.name}.").render)
+        val sortedRoles = allRoles.toSeq.sorted
+        val sortedGroups = allGroups.toSeq.sorted
+
+        Using(new PrintWriter(new FileWriter(permissionFile))) { out =>
+          writeLine(out, ("permission" +: sortedRoles).mkString(","))
+          for (group <- sortedGroups) {
+            val row = sortedRoles.map { role =>
+              val hasGroup = model.samlConfigurations.exists(saml => saml.roles.get(role).exists(_.contains(group)))
+              if (hasGroup) "true" else "false"
+            }
+            writeLine(out, (group +: row).mkString(","))
+          }
+        }.recover { case e: Exception =>
+          logger.error(Red(s"Failed to write permission-role matrix for ${model.name}: ${e.getMessage}").render)
+        }
+
+        logger.info(Green(s"CSV reports generated for ${model.product}/${model.name}.").render)
+      }
     }
 
     logger.info(Green("All per-project CSV reports generated successfully.").render)
