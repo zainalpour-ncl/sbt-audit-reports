@@ -3,7 +3,11 @@ package com.ncl.audit.cli
 import com.ncl.audit.RoutesParser
 import com.ncl.audit._
 import com.typesafe.config.ConfigFactory
+import com.typesafe.config.ConfigResolveOptions
+import com.typesafe.config.ConfigValueFactory
 import com.typesafe.config.ConfigValueType
+import com.typesafe.config.{Config => TypesafeConfig}
+
 import fansi.Color._
 import me.tongfei.progressbar.ProgressBarBuilder
 import me.tongfei.progressbar.ProgressBarStyle
@@ -19,6 +23,7 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.SimpleFileVisitor
 import java.nio.file.attribute.BasicFileAttributes
+import java.util.Collections
 import scala.collection.mutable
 import scala.io.Source
 import scala.jdk.CollectionConverters._
@@ -307,11 +312,24 @@ object ProtobufAuditCLI extends App {
         }
       }
     )
-    result.toSeq
+    result
   }
 
   private def parseSamlConfiguration(confFile: File): Option[SamlConfiguration] = {
-    val config = ConfigFactory.parseFile(confFile)
+    val defaults = ConfigFactory
+      .empty()
+      .withValue("APPLICATION_NAME", ConfigValueFactory.fromAnyRef("NA"))
+      .withValue(
+        "cinnamon.jmx-importer.beans",
+        ConfigValueFactory.fromAnyRef(Collections.emptyList())
+      )
+      .withValue("play.http.fileMimeTypes", ConfigValueFactory.fromAnyRef("default_mime_types"))
+
+    val config = ConfigFactory
+      .parseFile(confFile)
+      .withFallback(defaults)
+      .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+
     if (config.hasPath("saml")) {
       val samlConf = config.getConfig("saml")
       if (samlConf.hasPath("roles") && samlConf.hasPath("profile-groups-attribute")) {
