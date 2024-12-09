@@ -17,7 +17,7 @@ object RoutesParser {
   def identifier[_: P]: P[String] =
     P(CharsWhile(c => c.isLetterOrDigit || c == '.' || c == '_').!)
 
-  def params[_: P]: P[String] = P("(" ~ CharsWhile(_ != ')').! ~ ")")
+  def params[_: P]: P[String] = P("(" ~ CharsWhile(_ != ')', 0).! ~ ")")
 
   // Mandatory HTTP methods
   def method[_: P]: P[String] = P(("GET" | "POST" | "PUT" | "DELETE" | "PATCH").!)
