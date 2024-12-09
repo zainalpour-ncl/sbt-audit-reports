@@ -93,7 +93,8 @@ object ProtobufAuditPlugin extends AutoPlugin {
         name = projectName,
         repository = repository,
         services = internalServices,
-        dependencies = Set(ProjectDependency(enrichedServiceCalls))
+        dependencies = Set(ProjectDependency(enrichedServiceCalls)),
+        product = "NA"
       )
 
       // Write ProjectModel to JSON

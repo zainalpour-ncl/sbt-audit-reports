@@ -1,6 +1,140 @@
 {
-  "product": "CVS",
-  "projects": [
-    "proxima-vacation-service"
-  ]
+   "products": [
+      {
+         "product": "Accounting HQ",
+         "projects": [
+            "proxima-accounting-vacation-service",
+            "proxima-accounting-headquarters",
+            "proxima-accounting-journal-service",
+            "zero-accounting-data-service",
+            "zero-accounting-notification-service"
+         ]
+      },
+      {
+         "product": "Charging and Billing",
+         "projects": [
+            "proxima-fintech-gateway-servive",
+            "zero-cruise-vacation-service"
+         ]
+      },
+      {
+         "product": "Quest",
+         "projects": [
+            "zero-legacy-reservation-service",
+            "zero-legacy-reservation-import-service",
+            "zero-quest-backend-ship-service",
+            "zero-sailing-search-engine-service",
+            "zero-client-service",
+            "zero-client-import-service",
+            "zero-agent-import-service",
+            "zero-agent-service",
+            "zero-agency-import-service",
+            "zero-agency-service",
+            "zero-cabin-configuration-import-service",
+            "zero-cabin-configuration-service",
+            "zero-cruise-packation-import-service",
+            "zero-cruise-packation-service",
+            "zero-drupal-import-service",
+            "zero-fare-cache-import-service",
+            "zero-user-workspace-service",
+            "zero-ship-service",
+            "zero-ship-import-service",
+            "zero-quest",
+            "proxima-coupon-service",
+            "proxima-guest-advocate-headquarters",
+            "zero-sailing-service",
+            "zero-category-service"
+         ]
+      },
+      {
+         "product": "Core Vacation Services",
+         "projects": [
+            "proxima-vacation-service",
+            "proxima-dmn-vaction",
+            "proxima-dmn-core",
+            "proxima-ota-routing-service",
+            "zero-common",
+            "zero-common-utils",
+            "zero-common-testkit",
+            "zero-common-types",
+            "zero-common-play",
+            "zero-common-domain",
+            "zero-common-legacy-data"
+         ]
+      },
+      {
+         "product": "OTA",
+         "projects": [
+            "proxima-ota-routing-service",
+            "proxima-ota-types"
+         ]
+      },
+      {
+         "product": "Vacation Adjustments HQ",
+         "projects": [
+            "proxima-displacements-headquarters",
+            "proxima-displacements-service",
+            "proxima-cam-connector"
+         ]
+      },
+      {
+         "product": "Reporting",
+         "projects": [
+            "proxima-vacation-analytics"
+         ]
+      },
+      {
+         "product": "Cruise Accommodations HQ",
+         "projects": [
+            "zero-cruise-accommodations-headquarters",
+            "zero-cruise-accommodations-import-service"
+         ]
+      },
+      {
+         "product": "Cruise Pricing and Inventory HQ",
+         "projects": [
+            "zero-sailing-configuration",
+            "zero-sailing-management",
+            "zero-sailing-headquarters",
+            "zero-sailing-headquarters-backend-service",
+            "zero-ship-inventory-service",
+            "zero-cruise-accommodations-import-service",
+            "zero-cruise-destinations-import-service",
+            "zero-sailing-pricing-service",
+            "zero-pricing-headquarters",
+            "proxima-stateroom-inventory-service",
+            "proxima-vacation-group-service",
+            "zero-cabin-configuration-import-service",
+            "zero-cabin-configuration-service",
+            "zero-sailing-service",
+            "zero-ship-service",
+            "zero-ship-import-service",
+            "zero-category-service"
+         ]
+      },
+      {
+         "product": "Air HQ",
+         "projects": [
+            "proxima-air-headquarters",
+            "proxima-air-service",
+            "proxima-dmn-air"
+         ]
+      },
+      {
+         "product": "Cruise Promotions HQ",
+         "projects": [
+            "cruise-promotions-headquarters",
+            "cruise-promotions-service"
+         ]
+      },
+      {
+         "product": "Guest and Agent Communications HQ",
+         "projects": [
+            "proxima-guest-agent-communications-headquarters",
+            "proxima-guest-agent-communications-vacations",
+            "proxima-guest-agent-communications-publisher",
+            "proxima-dmn-guest-agent-communications"
+         ]
+      }
+   ]
 }
