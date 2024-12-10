@@ -1,7 +1,7 @@
-# Protobuf Audit Tool
+# Audit Report Tool
 =====================
 
-The **Protobuf Audit Tool** is primarily a **CLI tool** that parses Protobuf and Scala files across multiple GitHub repositories, extracting services, RPC methods, REST endpoints, dependencies, and SAML configurations. It generates comprehensive reports (in JSON and CSV formats) that can be used for internal audit and compliance processes.
+The **Audit Report Tool** is primarily a **CLI tool** that parses Protobuf and Scala files across multiple GitHub repositories, extracting services, RPC methods, REST endpoints, dependencies, and SAML configurations. It generates comprehensive reports (in JSON and CSV formats) that can be used for internal audit and compliance processes.
 
 Optionally, an **SBT plugin** is available as an add-on, but the CLI tool is the main focus for producing the required reports.
 

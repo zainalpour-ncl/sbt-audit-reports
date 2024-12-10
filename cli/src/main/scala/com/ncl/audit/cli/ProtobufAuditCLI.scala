@@ -6,8 +6,6 @@ import com.typesafe.config.ConfigFactory
 import com.typesafe.config.ConfigResolveOptions
 import com.typesafe.config.ConfigValueFactory
 import com.typesafe.config.ConfigValueType
-import com.typesafe.config.{Config => TypesafeConfig}
-
 import fansi.Color._
 import me.tongfei.progressbar.ProgressBarBuilder
 import me.tongfei.progressbar.ProgressBarStyle
