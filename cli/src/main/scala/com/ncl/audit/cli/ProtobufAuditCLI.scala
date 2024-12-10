@@ -250,13 +250,27 @@ object ProtobufAuditCLI extends App {
     val samlConfFiles = findSamlConfFiles(repoFolder)
 
     // gRPC services
-    val allServices = protoFiles.flatMap(file => ProtobufParserUtil.parseFile(file.toString)).toSet
+    val allServices: Set[Service] = protoFiles.flatMap(file => ProtobufParserUtil.parseFile(file.toString)).toSet
 
     // service calls
-    val enrichedServiceCalls = scalaFiles.flatMap { file =>
+    val serviceCalls = scalaFiles.flatMap { file =>
       val sourceCode = Files.readString(file.toPath, StandardCharsets.UTF_8)
       InjectedServiceAnalyzer.analyzeServiceCalls(sourceCode, file.getName)
     }.toSet
+
+    // Enrich the ServiceCalls with inputType and outputType from allServices
+    val enrichedServiceCalls: Set[ServiceCall] = serviceCalls.map { serviceCall =>
+      val enrichedMethods = serviceCall.calledMethods.map { methodCall =>
+        allServices
+          .find(_.name == serviceCall.serviceName) // Find the service by name
+          .flatMap(_.methods.find(_.name == methodCall.methodName)) // Find the matching RPC method
+          .map { rpcMethod =>
+            methodCall.copy(inputType = Some(rpcMethod.inputType), outputType = Some(rpcMethod.outputType))
+          }
+          .getOrElse(methodCall) // Use original methodCall if no match found
+      }
+      serviceCall.copy(calledMethods = enrichedMethods)
+    }
 
     // REST endpoints
     val restEndpoints = routesConfFiles.flatMap { file =>
@@ -293,7 +307,7 @@ object ProtobufAuditCLI extends App {
         }
       }
     )
-    result.toSeq
+    result
   }
 
   private def findRoutesConfFiles(baseDir: File): Seq[File] = {
@@ -310,7 +324,7 @@ object ProtobufAuditCLI extends App {
         }
       }
     )
-    result.toSeq
+    result
   }
 
   private def findSamlConfFiles(baseDir: File): Seq[File] = {
