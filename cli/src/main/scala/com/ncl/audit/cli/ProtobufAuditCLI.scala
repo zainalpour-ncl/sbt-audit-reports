@@ -258,20 +258,6 @@ object ProtobufAuditCLI extends App {
       InjectedServiceAnalyzer.analyzeServiceCalls(sourceCode, file.getName)
     }.toSet
 
-    // Enrich the ServiceCalls with inputType and outputType from allServices
-    val enrichedServiceCalls: Set[ServiceCall] = serviceCalls.map { serviceCall =>
-      val enrichedMethods = serviceCall.calledMethods.map { methodCall =>
-        allServices
-          .find(_.name == serviceCall.serviceName) // Find the service by name
-          .flatMap(_.methods.find(_.name == methodCall.methodName)) // Find the matching RPC method
-          .map { rpcMethod =>
-            methodCall.copy(inputType = Some(rpcMethod.inputType), outputType = Some(rpcMethod.outputType))
-          }
-          .getOrElse(methodCall) // Use original methodCall if no match found
-      }
-      serviceCall.copy(calledMethods = enrichedMethods)
-    }
-
     // REST endpoints
     val restEndpoints = routesConfFiles.flatMap { file =>
       val content = Files.readString(file.toPath, StandardCharsets.UTF_8)
@@ -288,7 +274,7 @@ object ProtobufAuditCLI extends App {
       repository = s"${config.githubUrl}/${config.organization}/${repoFolder.getName}",
       product = product,
       services = allServices,
-      dependencies = Set(ProjectDependency(enrichedServiceCalls)),
+      dependencies = Set(ProjectDependency(serviceCalls)),
       restEndpoints = restEndpoints,
       samlConfigurations = samlConfigurations
     )
@@ -397,6 +383,10 @@ object ProtobufAuditCLI extends App {
 
     logger.info(fansi.Color.Cyan(s"Mapping completed. Found ${serviceToProject.size} services.").render)
 
+    logger.info(fansi.Color.Cyan("Aggregating all services across project models...").render)
+    // Combine all services from all models
+    val allServices = models.flatMap(_.services).toSet
+
     logger.info(fansi.Color.Cyan("Updating project dependencies with project references...").render)
 
     val updatedModels = models.map { model =>
@@ -411,7 +401,20 @@ object ProtobufAuditCLI extends App {
         }
 
         callsByProject.map { case (projectRef, calls) =>
-          dep.copy(serviceCalls = calls, project = projectRef)
+          // Enrich MethodCall with inputType and outputType using allServices
+          val enrichedServiceCalls = calls.map { serviceCall =>
+            val enrichedMethods = serviceCall.calledMethods.map { methodCall =>
+              allServices
+                .find(_.name == serviceCall.serviceName) // Find the service by name
+                .flatMap(_.methods.find(_.name.toLowerCase == methodCall.methodName.toLowerCase)) // Find the RPC method
+                .map { rpcMethod =>
+                  methodCall.copy(inputType = Some(rpcMethod.inputType), outputType = Some(rpcMethod.outputType))
+                }
+                .getOrElse(methodCall) // Keep original if no match
+            }
+            serviceCall.copy(calledMethods = enrichedMethods)
+          }
+          dep.copy(serviceCalls = enrichedServiceCalls, project = projectRef)
         }
       }
       model.copy(dependencies = updatedDependencies)
