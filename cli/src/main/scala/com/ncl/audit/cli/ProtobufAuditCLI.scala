@@ -147,8 +147,13 @@ object ProtobufAuditCLI extends App {
         products.flatMap(_.projects)
       case None =>
         logger.info(Cyan(s"Listing repositories for organization: $organization").render)
-        val listCmd = s"gh repo list $organization --json name | jq -r '.[].name'"
-        val repoList = listCmd.!!.trim.split("\n").toSeq
+        val listCmd = Seq(
+          "sh",
+          "-c",
+          s"gh repo list $organization --source --limit 1000 --json name | jq -r '.[].name'"
+        )
+
+        val repoList = listCmd.!!.trim.split("\n").toSeq.map(_.trim).filterNot(_.contains(".g8"))
         logger.info(Cyan(s"Found ${repoList.size} repositories.").render)
         repoList
     }
@@ -255,7 +260,14 @@ object ProtobufAuditCLI extends App {
     // service calls
     val serviceCalls = scalaFiles.flatMap { file =>
       val sourceCode = Files.readString(file.toPath, StandardCharsets.UTF_8)
-      InjectedServiceAnalyzer.analyzeServiceCalls(sourceCode, file.getName)
+      Try(InjectedServiceAnalyzer.analyzeServiceCalls(sourceCode, file.getName)).fold(
+        e => {
+          logger.error(Red(s"Error processing Scala file $projectName:${file.getAbsolutePath}").render)
+          logger.debug(e.getMessage)
+          Seq.empty
+        },
+        identity
+      )
     }.toSet
 
     // REST endpoints
@@ -321,7 +333,14 @@ object ProtobufAuditCLI extends App {
         override def visitFile(file: java.nio.file.Path, attrs: BasicFileAttributes): FileVisitResult = {
           val name = file.getFileName.toString
           val pathString = file.toString
-          if (name.endsWith(".conf") && !pathString.contains("test")) {
+
+          // Filter out test files and known problematic configuration files
+          val isValidFile = name.endsWith(".conf") &&
+            !Set("test", "nginx", "node.conf", "Makefile.conf", "users.conf", "groups.conf", "devops").exists(
+              pathString.contains
+            )
+
+          if (isValidFile) {
             result += file.toFile
           }
           FileVisitResult.CONTINUE
@@ -512,9 +531,7 @@ object ProtobufAuditCLI extends App {
             val argument = method.inputType
             val response = method.outputType
             val definedIn = svc.definedIn.getOrElse("")
-            val implementedIn = "" // TODO: determine implementedIn
-            // TODO: PublishesTo/WritesTo, ConsumesFrom/ReadsFrom
-            writeLine(out, s"$product,$service,$endpoint,$argument,$response,$definedIn,$implementedIn")
+            writeLine(out, s"$product,$service,$endpoint,$argument,$response,$definedIn")
           }
         }.recover { case e: Exception =>
           logger.error(Red(s"Failed to write gRPC endpoints report for ${model.name}: ${e.getMessage}").render)
@@ -538,8 +555,7 @@ object ProtobufAuditCLI extends App {
             val callsTo = dep.project.name
             val endpoint = m.methodName
             val argument = m.inputType.getOrElse("")
-            val response = m.outputType.getOrElse("")
-            writeLine(out, s"$product,$service,$serviceName,$callsTo,$endpoint,$argument,$response")
+            writeLine(out, s"$product,$service,$serviceName,$callsTo,$endpoint,$argument")
           }
         }.recover { case e: Exception =>
           logger.error(Red(s"Failed to write dependent services report for ${model.name}: ${e.getMessage}").render)

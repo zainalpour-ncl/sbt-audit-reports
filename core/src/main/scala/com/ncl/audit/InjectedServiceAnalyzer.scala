@@ -11,7 +11,7 @@ object InjectedServiceAnalyzer {
     val parsed = source.parse[Source] match {
       case Parsed.Success(tree) => tree
       case Parsed.Error(pos, message, _) =>
-        throw new IllegalArgumentException(s"Failed to parse source: $message at $pos")
+        throw new IllegalArgumentException(s"Failed to parse $fileName: $message at $pos")
     }
 
     // Step 1: Extract injected services with type-based service name inference
