@@ -104,6 +104,9 @@ object ProtobufAuditCLI extends App {
       logger.info(Magenta("Writing reports to disk...").render)
       writeModelsToDisk(resolvedModels, config.outputFolder)
       writeReports(resolvedModels, config.outputFolder)
+
+      generateMissingServicesReport(resolvedModels, config.outputFolder)
+
       logger.info(Green("All reports have been successfully written.").render)
 
     case _ =>
@@ -598,5 +601,56 @@ object ProtobufAuditCLI extends App {
     }
 
     logger.info(Green("All per-project CSV reports generated successfully.").render)
+  }
+
+  private def generateMissingServicesReport(models: Seq[ProjectModel], outputFolder: File): Unit = {
+    logger.info(Cyan("Analyzing missing services...").render)
+
+    val definedServices = models.flatMap(_.services.map(_.name)).toSet
+
+    val missingServices = models.flatMap { model =>
+      model.dependencies.flatMap { dep =>
+        dep.serviceCalls.collect {
+          case sc if dep.project.name == "NA" || !definedServices.contains(sc.serviceName) =>
+            (model.name, sc.serviceName)
+        }
+      }
+    }
+
+    val groupedMissingServices = missingServices.groupBy(_._2).map {
+      case (serviceName, dependents) =>
+        serviceName -> dependents.map(_._1).distinct
+    }
+
+    if (groupedMissingServices.nonEmpty) {
+      logger.info(Magenta("Missing Services Summary:").render)
+
+      groupedMissingServices.foreach { case (missingService, dependents) =>
+        logger.info(Yellow(s"Service: $missingService").render)
+        logger.info(Cyan("Dependent Projects:").render)
+        dependents.foreach { dependent =>
+          logger.info(s"  - $dependent")
+        }
+      }
+
+      val reportPath = outputFolder.toPath.resolve("missing_services_report.txt").toFile
+      Using(new PrintWriter(new FileWriter(reportPath))) { writer =>
+        writer.println("Missing Services Summary:")
+        groupedMissingServices.foreach { case (missingService, dependents) =>
+          writer.println(s"Service: $missingService")
+          writer.println("Dependent Projects:")
+          dependents.foreach { dependent =>
+            writer.println(s"  - $dependent")
+          }
+          writer.println()
+        }
+      }.recover { case e: Exception =>
+        logger.error(Red(s"Failed to write missing services report: ${e.getMessage}").render)
+      }
+
+      logger.info(Green(s"Missing services report generated successfully at ${reportPath.getAbsolutePath}").render)
+    } else {
+      logger.info(Green("No missing services detected.").render)
+    }
   }
 }

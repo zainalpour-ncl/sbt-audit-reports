@@ -135,6 +135,20 @@
             "proxima-guest-agent-communications-publisher",
             "proxima-dmn-guest-agent-communications"
          ]
+      },
+      {
+         "product": "Cruise Policies HQ",
+         "projects": [
+            "proxima-dmn-vacation",
+            "proxima-dmn-core"
+         ]
+      },
+      {
+         "product": "Onboard Experience HQ",
+         "projects": [
+            "proxima-entitlements-service",
+            "proxima-communications-vacation-component-service"
+         ]
       }
    ]
 }
