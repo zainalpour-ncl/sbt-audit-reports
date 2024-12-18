@@ -35,7 +35,7 @@ This tool is useful for SOX compliance, IT Governance, and other internal audit 
    sbt auditReportCli/assembly
    ```
 
-The resulting JAR will be located at `cli/target/scala-2.12/audit-report-cli.jar`.
+The resulting JAR will be located at `cli/target/scala-2.13/audit-report-cli.jar`.
 
 2. **Run the CLI:**
 

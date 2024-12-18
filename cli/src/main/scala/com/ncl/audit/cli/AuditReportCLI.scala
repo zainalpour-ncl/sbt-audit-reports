@@ -29,9 +29,9 @@ import scala.sys.process._
 import scala.util.Try
 import scala.util.Using
 
-object ProtobufAuditCLI extends App {
+object AuditReportCLI extends App {
 
-  private val logger = LoggerFactory.getLogger(ProtobufAuditCLI.getClass)
+  private val logger = LoggerFactory.getLogger(AuditReportCLI.getClass)
 
   case class Config(
     inputFolder: Option[File] = None,
@@ -306,7 +306,7 @@ object ProtobufAuditCLI extends App {
         }
       }
     )
-    result
+    result.toSeq
   }
 
   private def findRoutesConfFiles(baseDir: File): Seq[File] = {
@@ -323,7 +323,7 @@ object ProtobufAuditCLI extends App {
         }
       }
     )
-    result
+    result.toSeq
   }
 
   private def findSamlConfFiles(baseDir: File): Seq[File] = {
@@ -348,7 +348,7 @@ object ProtobufAuditCLI extends App {
         }
       }
     )
-    result
+    result.toSeq
   }
 
   private def parseSamlConfiguration(confFile: File): Option[SamlConfiguration] = {
@@ -617,9 +617,8 @@ object ProtobufAuditCLI extends App {
       }
     }
 
-    val groupedMissingServices = missingServices.groupBy(_._2).map {
-      case (serviceName, dependents) =>
-        serviceName -> dependents.map(_._1).distinct
+    val groupedMissingServices = missingServices.groupBy(_._2).map { case (serviceName, dependents) =>
+      serviceName -> dependents.map(_._1).distinct
     }
 
     if (groupedMissingServices.nonEmpty) {

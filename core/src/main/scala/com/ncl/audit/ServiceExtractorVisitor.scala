@@ -10,7 +10,7 @@ class ServiceExtractorVisitor extends ProtobufParserBaseVisitor[Seq[Service]] {
 
   override def visitFile(ctx: FileContext): Seq[Service] =
     // Visit all file elements and collect services
-    ctx.fileElement().asScala.flatMap(visit)
+    ctx.fileElement().asScala.flatMap(visit).toSeq
 
   override def visitServiceDecl(ctx: ServiceDeclContext): Seq[Service] = {
     val serviceName = ctx.serviceName().getText

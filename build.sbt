@@ -21,23 +21,24 @@ lazy val core = (project in file("core"))
   )
   .enablePlugins(Antlr4Plugin)
 
-lazy val auditReportPlugin = (project in file("sbt-plugin"))
-  .enablePlugins(SbtPlugin)
-  .dependsOn(core)
-  .settings(
-    commonSettings,
-    addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.8.19"),
-    name := "sbt-audit-report-plugin",
-    sbtPlugin := true,
-    libraryDependencies ++= pluginDependencies
-  )
+//lazy val auditReportPlugin = (project in file("sbt-plugin"))
+//  .enablePlugins(SbtPlugin)
+//  .dependsOn(core)
+//  .settings(
+//    commonSettings,
+//    scalaVersion := "2.12.20",
+//    addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.8.19"),
+//    name := "sbt-audit-report-plugin",
+//    sbtPlugin := true,
+//    libraryDependencies ++= pluginDependencies
+//  )
 
 lazy val auditReportCli = (project in file("cli"))
   .dependsOn(core)
   .settings(
     commonSettings,
     name := "audit-report-cli",
-    Compile / mainClass := Some("com.ncl.audit.cli.ProtobufAuditCLI"),
+    Compile / mainClass := Some("com.ncl.audit.cli.AuditReportCLI"),
     libraryDependencies ++= Seq(
       "com.github.scopt" %% "scopt" % "4.1.0",
       "me.tongfei" % "progressbar" % "0.10.1",
@@ -54,7 +55,8 @@ lazy val auditReportCli = (project in file("cli"))
   .enablePlugins(AssemblyPlugin)
 
 lazy val root = (project in file("."))
-  .aggregate(core, auditReportPlugin, auditReportCli)
+//  .aggregate(core, auditReportPlugin, auditReportCli)
+  .aggregate(core, auditReportCli)
   .settings(
     name := "sbt-audit-report",
     commonSettings,
